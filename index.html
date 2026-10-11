@@ -22,30 +22,26 @@ s.done=s.done||{};
 if(!s.week1Confirmed){for(let n=1;n<=4;n++)s.done[n]=s.done[n]||'2026-10-11T00:00:00+08:00';s.current=4;s.week1Confirmed=true}
 s.current=Math.max(1,Math.min(Number(s.current)||4,lessons.length));
 const save=()=>localStorage.setItem(KEY,JSON.stringify(s));
-const localDate=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 function unlock(){
- const n=s.current,now=new Date(),finished=s.done[n]&&new Date(s.done[n]);
- if(n>=lessons.length||!finished||isNaN(finished)||localDate(now)<=localDate(finished)||now.getHours()<7)return;
- const weekday=now.getDay();
- if(n%4===0?weekday===1:weekday>=1&&weekday<=4){s.current=n+1;save()}
+ const previous=s.current;
+ while(s.current<lessons.length&&s.done[s.current])s.current++;
+ if(s.current!==previous)save();
 }
 save();unlock();
 function stats(){const week=Math.ceil(s.current/4),first=(week-1)*4+1,complete=[0,1,2,3].filter(i=>s.done[first+i]).length;document.querySelector('#stats').innerHTML=[['Current Week','Week '+week],['Current Lesson','Lesson '+s.current],['今日状态',s.done[s.current]?'Completed':'In Progress'],['Weekly Progress',complete+' / 4']].map(x=>`<div class="stat"><div class="label">${x[0]}</div><div class="value">${x[1]}</div></div>`).join('')}
 function item(x,i){return `<article class="item"><div class="num">${String(i+1).padStart(2,'0')}</div><div class="hr">${x[0]} <span class="zh">${x[1]}</span></div><div class="ex">${x[2]}</div><div class="tr">${x[3]}</div>${x[4]?`<div class="note">提示：${x[4]}</div>`:''}</article>`}
-function today(){unlock();stats();let n=s.current,l=lessons[n-1],done=!!s.done[n];document.querySelector('#app').innerHTML=`<section class="card"><div class="course-head"><h2>Week ${Math.ceil(n/4)} · Lesson ${((n-1)%4)+1} · ${l.t}</h2><p>${done?(n===lessons.length?'本组四课已完成。可以去中文复习区练习。':n%4===0?'本组四课已完成。下一组从之后的周一早上 7 点起开放。':'已完成。下一课将在之后的学习日早上 7 点起开放。'):'10 个日常表达，按自己的时间学习。'}</p></div>${l.items.map(item).join('')}<div class="foot">${done?'<span class="hint">✓ 已完成</span>':'<span class="hint">10 个项目 · 约 10–15 分钟</span>'}${done?'':`<button class="primary" onclick="complete()">Mark as Completed</button>`}</div></section>`}
+function today(){unlock();stats();let n=s.current,l=lessons[n-1],done=!!s.done[n];document.querySelector('#app').innerHTML=`<section class="card"><div class="course-head"><h2>Week ${Math.ceil(n/4)} · Lesson ${((n-1)%4)+1} · ${l.t}</h2><p>${done?'已更新的八节课都学完了，可以随时去中文复习区练习。':'10 个日常表达，按自己的时间学习。完成后即可继续下一课。'}</p></div>${l.items.map(item).join('')}<div class="foot">${done?'<span class="hint">✓ 已完成</span>':'<span class="hint">10 个项目 · 约 10–15 分钟</span>'}${done?'':`<button class="primary" onclick="complete()">Mark as Completed</button>`}</div></section>`}
 function complete(){if(s.done[s.current])return;s.done[s.current]=new Date().toISOString();save();today()}
 function history(){document.querySelector('#app').innerHTML=`<section class="card history"><div class="course-head"><h2>历史课程</h2><p>随时回看已开放的课程，不会影响当前进度。</p></div>${lessons.map((l,i)=>`<button ${i+1>s.current?'disabled':'onclick="show('+(i+1)+')"'}>Week ${Math.ceil((i+1)/4)} · Lesson ${(i%4)+1} · ${l.t}${s.done[i+1]?'<span class="done">已完成</span>':i+1>s.current?'<span class="done">未解锁</span>':''}</button>`).join('')}</section>`}
 function show(n){let l=lessons[n-1];document.querySelector('#app').innerHTML=`<section class="card"><div class="course-head"><h2>Lesson ${n} · ${l.t}</h2><p>历史复习</p></div>${l.items.map(item).join('')}</section>`}
 function reveal(button,lessonIndex,itemIndex){const answer=lessons[lessonIndex].items[itemIndex][0];button.insertAdjacentHTML('afterend',`<div class="answer">${answer}</div>`);button.remove()}
 function review(){
- const groups=lessons.map((lesson,i)=>({lesson,i})).filter(({i})=>s.done[i+1]);
- document.querySelector('#app').innerHTML=`<section class="card review"><h2>中文 → 克罗地亚语</h2><p class="hint">先看中文，自己说出克罗地亚语；需要核对时再点“显示答案”。已完成的四节课，共 40 项，全部在下面。</p>${groups.map(({lesson,i})=>`<h3>Week ${Math.ceil((i+1)/4)} · Lesson ${(i%4)+1} · ${lesson.t}</h3><div class="review-list">${lesson.items.map((x,j)=>`<div class="review-card"><div class="prompt">${j+1}. ${x[1]}</div><button class="secondary" onclick="reveal(this,${i},${j})">显示答案</button></div>`).join('')}</div>`).join('')}</section>`
+ const groups=lessons.map((lesson,i)=>({lesson,i}));
+ document.querySelector('#app').innerHTML=`<section class="card review"><h2>中文 → 克罗地亚语</h2><p class="hint">已更新的 ${lessons.length} 节课、${lessons.reduce((total,lesson)=>total+lesson.items.length,0)} 项都在这里。先看中文说出克罗地亚语，再点“显示答案”核对。</p>${groups.map(({lesson,i})=>`<h3>Week ${Math.ceil((i+1)/4)} · Lesson ${(i%4)+1} · ${lesson.t}</h3><div class="review-list">${lesson.items.map((x,j)=>`<div class="review-card"><div class="prompt">${j+1}. ${x[1]}</div><button class="secondary" onclick="reveal(this,${i},${j})">显示答案</button></div>`).join('')}</div>`).join('')}</section>`
 }
 function render(){unlock();stats();(({today,history,review})[s.view]||today)()}
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');s.view=b.dataset.view;save();render()});
 if(!['today','history','review'].includes(s.view))s.view='today';
 document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.view===s.view));
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)render()});
-setInterval(()=>{const previous=s.current;unlock();if(s.current!==previous)render()},60000);
 render();
 </script></body></html>
